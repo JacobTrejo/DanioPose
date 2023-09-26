@@ -1,0 +1,23 @@
+
+CommandNotFoundError: Your shell has not been properly configured to use 'conda deactivate'.
+To initialize your shell, run
+
+    $ conda init <SHELL_NAME>
+
+Currently supported shells are:
+  - bash
+  - fish
+  - tcsh
+  - xonsh
+  - zsh
+  - powershell
+
+See 'conda init --help' for more information and options.
+
+IMPORTANT: You may need to close and restart your shell after running 'conda init'.
+
+
+  File "/home/asravan2/vae_practice/src_pose_3D_single_model/runme_intermediate_layers.py", line 118
+    plt.savefig('outputs/layers'.png')
+                                      ^
+SyntaxError: EOL while scanning string literal
