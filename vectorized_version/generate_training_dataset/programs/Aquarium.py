@@ -114,42 +114,6 @@ class Aquarium:
                 self._y = value
                 self.yInt = roundHalfUp(value).astype(int)
 
-        class Point:
-            """
-                Class used to represent the keypoints
-
-                Properties:
-                    x (float): x coordinate
-                    y (float): y coordinate
-                    z (float): z/depth coordinate
-                    visibility (boolean): state representing whether or not the point is in the image
-
-                Methods:
-                    __init__, args(float, float, float): creates a point with coordinates (x,y, z/depth)
-                                                        and sets visibility to True of False depending on whether that
-                                                        point is visible in the image
-                    getXInt, args(): returns the x coordinate rounded to an integer
-                    getYInt, args(): returns the y coordinate rounded to an integer
-                    isInBounds args(): returns true of false if the integer version of the point is in the image
-            """
-
-            def __init__(self, x, y, z=None):
-                self.x = x
-                self.y = y
-                self.z = z
-                # not calling isInBounds, because object may need to initialize first
-                self.visibility = True if (x < imageSizeX and x >= 0 and y < imageSizeY and y >= 0) else False
-
-            def getXInt(self):
-                return roundHalfUp(self.x).astype(int)
-
-            def getYInt(self):
-                return roundHalfUp(self.y).astype(int)
-
-            def isInBounds(self):
-                xInt = self.getXInt()
-                yInt = self.getYInt()
-                return True if (xInt < imageSizeX and xInt >= 0 and yInt < imageSizeY and yInt >= 0) else False
 
         # Fish Class Begins
         """
@@ -275,19 +239,6 @@ class Aquarium:
                 pointsInViewList = self.keypointsListContainer[viewIdx]
                 depths = depthsContainer[viewIdx]
 
-                # for pointIdx in range(Aquarium.Fish.number_of_backbone_points):
-                #     x = coors[0, pointIdx]
-                #     y = coors[1, pointIdx]
-                #     z = depths[pointIdx]
-                #     point = Aquarium.Fish.Point(x, y, z)
-                #     pointsInViewList.append(point)
-                # for pointIdx in range(2):
-                #     x = eyes[0, pointIdx]
-                #     y = eyes[1, pointIdx]
-                #     point = Aquarium.Fish.Point(x, y)
-                #     pointsInViewList.append(point)
-
-                # NOTE: replacing the code that was commented above
                 x = np.concatenate((coors[0,:], eyes[0,:]))
                 y = np.concatenate((coors[1,:], eyes[1,:]))
                 keypointsArray = Aquarium.Fish.KeypointsArray(x,y,depths)
@@ -301,10 +252,6 @@ class Aquarium:
                 gray = self.graysContainer[viewIdx]
                 # keypointsList = self.keypointsListContainer[viewIdx]
                 keypointsArray = self.keypointContainer[viewIdx]
-                # TODO modify this later so that it also includes the eyes
-                # xArr = np.array([point.x for point in keypointsList[:Aquarium.Fish.number_of_backbone_points]])
-                # yArr = np.array([point.y for point in keypointsList[:Aquarium.Fish.number_of_backbone_points]])
-                # zArr = np.array([point.z for point in keypointsList[:Aquarium.Fish.number_of_backbone_points]])
                 #  Creating Depth Arrays  img,  y coor,   x coor,   depth coor
                 xArr = keypointsArray.x[:Aquarium.Fish.number_of_backbone_points]
                 yArr = keypointsArray.y[:Aquarium.Fish.number_of_backbone_points]
