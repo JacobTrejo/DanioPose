@@ -96,12 +96,6 @@ class Aquarium:
                 if zArr is not None:
                     self.depth[:zArr.shape[0]] = zArr
 
-                # array that contains the integer version of the keypoints
-                # will be constant for each KeypointsArray object
-                # and will be used to check and update the visibility
-                self.keypointsIntArray = np.zeros((2, xArr.shape[0]))
-                self.keypointsIntArray[0,:] = roundHalfUp(xArr).astype(int)
-                self.keypointsIntArray[1,:] = roundHalfUp(yArr).astype(int)
 
                 # right now the visibility only depends on if the point is in the frame
                 self.visibility = self.inBoundsMask
@@ -119,7 +113,6 @@ class Aquarium:
             def y(self,value):
                 #self.keypointsArray[1,:] = value
                 self._y = value
-                # self.keypointsIntArray[1, :] = roundHalfUp(value).astype(int)
                 self.yInt = roundHalfUp(value).astype(int)
 
         class Point:
