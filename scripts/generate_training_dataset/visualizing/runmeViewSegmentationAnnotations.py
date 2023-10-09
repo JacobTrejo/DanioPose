@@ -1,4 +1,4 @@
-from old_files_3D.generate_training_dataset.programs.visualizeYOLOSegmentationFunction import getImgWithAnnotations
+from scripts.generate_training_dataset.programs.visualizeYOLOSegmentationFunction import getImgWithAnnotations
 import numpy as np
 import cv2 as cv
 import os

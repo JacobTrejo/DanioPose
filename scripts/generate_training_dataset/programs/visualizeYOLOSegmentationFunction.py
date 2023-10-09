@@ -74,8 +74,8 @@ def getImgWithAnnotations(absolutePathToImage):
         cutOutContainer.append(cutOut)
     # catCutOut = np.concatenate( [cutOut for cutOut in cutOutContainer], axis=0)
     # catIm = np.concatenate( [rgbIm[...,channel] for channel in range(3)], axis=0 )
-    catCutOut = np.concatenate( [cutOutContainer[ idx] for idx in range(3)], axis=0)
-    catIm = np.concatenate( [rgbIm[...,channel] for channel in range(3)], axis=0 )
+    catCutOut = np.concatenate( [cutOutContainer[2 -  idx] for idx in range(3)], axis=0)
+    catIm = np.concatenate( [rgbIm[...,2 - channel] for channel in range(3)], axis=0 )
 
 
     # Turning them in rgb

@@ -1,5 +1,5 @@
 # from ..programs.visualizeYOLOPoseFunction import getImgWithAnnotations
-from old_files_3D.generate_training_dataset.programs.visualizeYOLOPoseFunction import getImgWithAnnotations
+from scripts.generate_training_dataset.programs.visualizeYOLOPoseFunction import getImgWithAnnotations
 import numpy as np
 import cv2 as cv
 import os

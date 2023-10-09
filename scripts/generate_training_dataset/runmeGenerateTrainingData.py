@@ -37,7 +37,7 @@ def init_pool_process():
     np.random.seed()
 
 def genData(idx):
-    aquarium = Aquarium( idx, annotationsType= AnnotationsType.segmentation )
+    aquarium = Aquarium( idx, annotationsType= AnnotationsType.keypoint )
     aquarium.draw()
     # aquarium.saveCatGrays()
     aquarium.saveGrays()
@@ -47,7 +47,7 @@ def genData(idx):
 #     # multiprocessing case
 #     print('Process Starting')
 #     startTime = time.time()
-#     amount = 3
+#     amount = 10
 #     pool_obj = multiprocessing.Pool(initializer=init_pool_process)
 #     pool_obj.map(genData, range(0,amount))
 #     pool_obj.close()
@@ -72,7 +72,7 @@ if debugging:
     fish2 = [3.8993589130855133, 5.61911477e+00 - 5, 4.22782300e+00 - 8, 7.73263985e+01 - 7, 0 , 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     fishVectList = [fish,fish2]
-    aquarium = Aquarium(20, fishVectList = fishVectList,annotationsType = AnnotationsType.keypoint )
+    aquarium = Aquarium(20 ,fishVectList = fishVectList,annotationsType = AnnotationsType.keypoint )
 
     # Case where you specify variables
     # Notes: overlapping and fishInEdges are not constrained to show up in only one view

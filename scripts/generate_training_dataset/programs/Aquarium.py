@@ -82,6 +82,46 @@ class Aquarium:
             def isBigEnough(self):
                 return True if self.getArea() > Aquarium.Fish.Bounding_Box.areaThreshold else False
 
+        class KeypointsArray:
+            """
+                Class which stores keypoints in an array for vectorization purposes
+            """
+            def __init__(self, xArr, yArr, zArr = None):
+                self.x = xArr
+                self.xInt = roundHalfUp(xArr).astype(int)
+                self._y = yArr
+                self.yInt = roundHalfUp(yArr).astype(int)
+                self.visibility = np.zeros((Aquarium.Fish.number_of_keypoints))
+                self.depth = np.zeros((Aquarium.Fish.number_of_keypoints))
+                if zArr is not None:
+                    self.depth[:zArr.shape[0]] = zArr
+
+                # array that contains the integer version of the keypoints
+                # will be constant for each KeypointsArray object
+                # and will be used to check and update the visibility
+                self.keypointsIntArray = np.zeros((2, xArr.shape[0]))
+                self.keypointsIntArray[0,:] = roundHalfUp(xArr).astype(int)
+                self.keypointsIntArray[1,:] = roundHalfUp(yArr).astype(int)
+
+                # right now the visibility only depends on if the point is in the frame
+                self.visibility = self.inBoundsMask
+
+            @ property
+            def inBoundsMask(self):
+                isXInBounds = (self.xInt >= 0) * (self.xInt < imageSizeX)
+                isYInBounds = (self.yInt >= 0) * (self.yInt < imageSizeY)
+                return isXInBounds * isYInBounds
+            # y gets modified when getting reflected fishes, hence why it has to be a bit different
+            @ property
+            def y(self):
+                return self._y
+            @ y.setter
+            def y(self,value):
+                #self.keypointsArray[1,:] = value
+                self._y = value
+                # self.keypointsIntArray[1, :] = roundHalfUp(value).astype(int)
+                self.yInt = roundHalfUp(value).astype(int)
+
         class Point:
             """
                 Class used to represent the keypoints
@@ -109,10 +149,10 @@ class Aquarium:
                 self.visibility = True if (x < imageSizeX and x >= 0 and y < imageSizeY and y >= 0) else False
 
             def getXInt(self):
-                return int(roundHalfUp(self.x))
+                return roundHalfUp(self.x).astype(int)
 
             def getYInt(self):
-                return int(roundHalfUp(self.y))
+                return roundHalfUp(self.y).astype(int)
 
             def isInBounds(self):
                 xInt = self.getXInt()
@@ -190,6 +230,8 @@ class Aquarium:
 
             # For keypoint annotations, default
             self.keypointsListContainer = [[], [], []]
+            # New version of the above
+            self.keypointContainer = []
             self.boundingBoxContainer = [Aquarium.Fish.Bounding_Box(),
                                          Aquarium.Fish.Bounding_Box(),
                                          Aquarium.Fish.Bounding_Box()]
@@ -214,21 +256,23 @@ class Aquarium:
                     ########################
                     gray = self.graysContainer[viewIdx]
                     gray = gray.astype(np.uint8)
-                    contours = cv.findContours(gray, cv.RETR_TREE, cv.CHAIN_APPROX_NONE)
-                    contours = contours[0]
+                    contours, _ = cv.findContours(gray, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE)
                     numberOfContours = len(contours)
                     if numberOfContours != 0:
-                        contourToAdd = None
-                        maxAmountOfPoints = 0
-
-                        for contourIdx in range(numberOfContours):
-                            amountOfPoints = contours[contourIdx].shape[0]
-                            if maxAmountOfPoints <= amountOfPoints:
-                                maxAmountOfPoints = amountOfPoints
-                                contourToAdd = contours[contourIdx][:, 0, :]
-
-                        if contourToAdd is not None:
-                            self.contourContainer[viewIdx] = contourToAdd
+                        contours = np.squeeze(contours[0])
+                        if contours.ndim != 1:
+                            self.contourContainer[viewIdx] = contours
+                        # contourToAdd = None
+                        # maxAmountOfPoints = 0
+                        #
+                        # for contourIdx in range(numberOfContours):
+                        #     amountOfPoints = contours[contourIdx].shape[0]
+                        #     if maxAmountOfPoints <= amountOfPoints:
+                        #         maxAmountOfPoints = amountOfPoints
+                        #         contourToAdd = contours[contourIdx][:, 0, :]
+                        #
+                        # if contourToAdd is not None:
+                        #     self.contourContainer[viewIdx] = contourToAdd
 
             coorsContainer = [c_b, c_s1, c_s2]
             eyesContainer = [eye_b, eye_s1, eye_s2]
@@ -238,45 +282,60 @@ class Aquarium:
                 eyes = eyesContainer[viewIdx]
                 pointsInViewList = self.keypointsListContainer[viewIdx]
                 depths = depthsContainer[viewIdx]
-                for pointIdx in range(Aquarium.Fish.number_of_backbone_points):
-                    x = coors[0, pointIdx]
-                    y = coors[1, pointIdx]
-                    z = depths[pointIdx]
-                    point = Aquarium.Fish.Point(x, y, z)
-                    pointsInViewList.append(point)
-                for pointIdx in range(2):
-                    x = eyes[0, pointIdx]
-                    y = eyes[1, pointIdx]
-                    point = Aquarium.Fish.Point(x, y)
-                    pointsInViewList.append(point)
 
-                # Updating, sometimes necessary, will have to check if it is in this case
-                self.keypointsListContainer[viewIdx] = pointsInViewList
+                # for pointIdx in range(Aquarium.Fish.number_of_backbone_points):
+                #     x = coors[0, pointIdx]
+                #     y = coors[1, pointIdx]
+                #     z = depths[pointIdx]
+                #     point = Aquarium.Fish.Point(x, y, z)
+                #     pointsInViewList.append(point)
+                # for pointIdx in range(2):
+                #     x = eyes[0, pointIdx]
+                #     y = eyes[1, pointIdx]
+                #     point = Aquarium.Fish.Point(x, y)
+                #     pointsInViewList.append(point)
+
+                # NOTE: replacing the code that was commented above
+                x = np.concatenate((coors[0,:], eyes[0,:]))
+                y = np.concatenate((coors[1,:], eyes[1,:]))
+                keypointsArray = Aquarium.Fish.KeypointsArray(x,y,depths)
+                self.keypointContainer.append(keypointsArray)
+
+                # # Updating, sometimes necessary, will have to check if it is in this case
+                # self.keypointsListContainer[viewIdx] = pointsInViewList
             # self.keypointsListContainer = [pointsInViewBList, keypointsListContainer[0], keypointsListContainer[1]]
-
             # Creating Depth Arrays, Updating Eyes, and getting their bounding boxes
             for viewIdx in range(3):
                 gray = self.graysContainer[viewIdx]
-                keypointsList = self.keypointsListContainer[viewIdx]
+                # keypointsList = self.keypointsListContainer[viewIdx]
+                keypointsArray = self.keypointContainer[viewIdx]
                 # TODO modify this later so that it also includes the eyes
-                xArr = np.array([point.x for point in keypointsList[:Aquarium.Fish.number_of_backbone_points]])
-                yArr = np.array([point.y for point in keypointsList[:Aquarium.Fish.number_of_backbone_points]])
-                zArr = np.array([point.z for point in keypointsList[:Aquarium.Fish.number_of_backbone_points]])
+                # xArr = np.array([point.x for point in keypointsList[:Aquarium.Fish.number_of_backbone_points]])
+                # yArr = np.array([point.y for point in keypointsList[:Aquarium.Fish.number_of_backbone_points]])
+                # zArr = np.array([point.z for point in keypointsList[:Aquarium.Fish.number_of_backbone_points]])
                 #  Creating Depth Arrays  img,  y coor,   x coor,   depth coor
-                depthIm = createDepthArr(gray, yArr, xArr, zArr)
+                xArr = keypointsArray.x[:Aquarium.Fish.number_of_backbone_points]
+                yArr = keypointsArray.y[:Aquarium.Fish.number_of_backbone_points]
+                depth = keypointsArray.depth[:Aquarium.Fish.number_of_backbone_points]
+                depthIm = createDepthArr(gray, yArr, xArr, depth)
                 (self.depthsContainer).append(depthIm)
 
-                # TODO fix this so that I dont have to update it like this
-                for pointIdx, point in enumerate(keypointsList):
-                    if point.isInBounds():
-                        point.z = depthIm[point.getYInt(), point.getXInt()]
-                        point.visibility = True
-                    else:
-                        point.visibility = False
-                    keypointsList[pointIdx] = point
+                # Updating the depth to be able to compare it after merging the images
+                mask4Points = keypointsArray.inBoundsMask
+                keypointsArray.depth[mask4Points] = \
+                    depthIm[keypointsArray.yInt[mask4Points], keypointsArray.xInt[mask4Points]]
 
-                # Updating, # TODO check if this is necessary
-                self.keypointsListContainer[viewIdx] = keypointsList
+                # for pointIdx, point in enumerate(keypointsList):
+                #     if point.isInBounds():
+                #         point.z = depthIm[point.getYInt(), point.getXInt()]
+                #         point.visibility = True
+                #     else:
+                #         point.visibility = False
+                #     keypointsList[pointIdx] = point
+
+                # # Updating, # TODO check if this is necessary
+                # self.keypointsListContainer[viewIdx] = keypointsList
+                self.keypointContainer[viewIdx] = keypointsArray
 
                 # Finding the bounding box
                 nonZeroPoints = np.argwhere(gray != 0)
@@ -317,9 +376,6 @@ class Aquarium:
             reflectedFishContainer (list): of size three for consistency, but only the 2nd and 3rd element are really
                 used.  Need to keep track of the annotations.
             annotationsType (AnnotationsType): flag used to tell which type of annotations are needed
-
-            reflectedFishOutlinesContainer (list): of size three for consistency, but only the 2nd and 3rd element are
-                really used.  It contains the contours of the reflected fish
 
         Methods:
             __init__, args(int, AnnotationsType, dataFolderPath): Creates an instance of the aquarium class.  It
@@ -367,8 +423,7 @@ class Aquarium:
         self.waterLevel = None
         self.reflectedFishContainer = [[], [], []]
         self.annotationsType = annotationsType
-        # TODO: might have to be deleted
-        self.reflectedFishOutlinesContainer = [[], [], []]
+
 
         # Detecting which type of aquarium you want to generate
         aquariumVariablesDict = {'fishInAllViews':0, 'fishInB':0, 'fishInS1':0, 'fishInS2':0, 'fishInEdges':0,
@@ -382,7 +437,7 @@ class Aquarium:
             if key is Aquarium.fishVectListKey:
                 wasAnAquariumPassed = True
                 fishVectList = kwargs.get(key)
-            if key == 'waterLever':
+            if key == 'waterLevel':
                 self.waterLevel = kwargs.get(key)
 
 
@@ -408,7 +463,6 @@ class Aquarium:
             shouldThereBeWater = True if np.random.rand() > .5 else False
             if shouldThereBeWater:
                 self.waterLevel = np.random.randint(10, high=60)
-
 
 
     def generateFishListGivenVariables(self,aquariumVariablesDict):
@@ -476,7 +530,7 @@ class Aquarium:
                 gContainer[fishIdx,...] = gray
                 depthContainer[fishIdx, ...] = depth
 
-                # Updating, TODO check if this is necessary
+                # Updating
                 self.allGContainer[viewIdx] = gContainer
                 self.allGDepthContainer[viewIdx] = depthContainer
 
@@ -488,7 +542,7 @@ class Aquarium:
             allG = self.allGContainer[viewIdx]
             allGDepth = self.allGDepthContainer[viewIdx]
 
-            finalGray, finalDepth = mergeMultipleGrayswithEdgesBlurred(allG, allGDepth)
+            finalGray, finalDepth = mergeGreys(allG, allGDepth)
             self.finalGraysContainer.append(finalGray)
             self.finalDepthsContainer.append(finalDepth)
         # After merging all the pictures some parts of the fish may have become hidden
@@ -516,33 +570,29 @@ class Aquarium:
                     # TODO update this so that you also consider when the fish falls within the range of the reflection
                     gray = fish.graysContainer[viewIdx]
                     depth = fish.depthsContainer[viewIdx]
-                    keypointsList = fish.keypointsListContainer[viewIdx]
                     # Adding the reflections to the images
                     grayFlipped = np.flipud(np.copy(gray))
                     grayDepthFlipped = np.flipud(depth)
 
-
                     gray[0:topPoint, :] = np.copy(1 * grayFlipped[-topPoint * 2:-topPoint, :])
-                    # graysContainer[viewIdx] = gray
                     depth[0:topPoint, :] = grayDepthFlipped[-topPoint * 2:-topPoint, :]
-                    # graysDepthContainer[viewIdx] = depth
                     # Adding a reflected fish object for annotations
                     reflectedFish = copy.deepcopy(fish)
-                    reflectedKeypoints = reflectedFish.keypointsListContainer[viewIdx]
-                    for pointIdx , point in enumerate(reflectedKeypoints):
-                        x = point.x
-                        y = point.y
-                        y = (imageSizeY - 1) - y
-                        y -= imageSizeY - (2 * topPoint)
-                        # These next three lines update
-                        point.y = y
-                        if point.isInBounds():
-                            point.visibility = True
-                            point.z = depth[point.getYInt(), point.getXInt()]
-                        else:
-                            point.visibility = False
-                        reflectedKeypoints[pointIdx] = point
-                    reflectedFish.keypointsListContainer[viewIdx] = reflectedKeypoints
+                    reflectedKeypointsArr = reflectedFish.keypointContainer[viewIdx]
+
+                    # the fish was flipped, so we need to flip the y coordinates of the keypoints
+                    y = reflectedKeypointsArr.y
+                    y = (imageSizeY - 1) - y
+                    y -= imageSizeY - (2 * topPoint)
+                    reflectedKeypointsArr.y = y
+
+                    mask = reflectedKeypointsArr.inBoundsMask
+                    # updating the depth so that we can keep track of it
+                    reflectedKeypointsArr.depth[mask] = \
+                        depth[ reflectedKeypointsArr.yInt[mask], reflectedKeypointsArr.xInt[mask] ]
+                    # When reflecting the fish its possible that a keypoint got cut off
+                    reflectedKeypointsArr.visibility = mask
+
 
                     reflectedBoundingBox = reflectedFish.boundingBoxContainer[viewIdx]
                     boundingBoxYs = np.array([reflectedBoundingBox.smallY, reflectedBoundingBox.bigY])
@@ -551,37 +601,53 @@ class Aquarium:
                     [reflectedBoundingBox.bigY, reflectedBoundingBox.smallY] = boundingBoxYs
                     reflectedBoundingBox.smallY = np.clip(reflectedBoundingBox.smallY, 0, imageSizeY - 1)
                     reflectedBoundingBox.bigY = np.clip(reflectedBoundingBox.bigY, 0, imageSizeY - 1)
-                    # Updating TODO check if this is really necessary
+
+                    # Cutting off the top of the reflection to better simulate
+                    # the observed reflections
+                    probToCutOffReflection = .5
+                    shouldBoxBeCutOff = True if np.random.rand() < probToCutOffReflection else False
+                    shouldBoxBeCutOff = False
+                    if shouldBoxBeCutOff:
+                        heightOfReflectionsBoundingBox = reflectedBoundingBox.bigY - reflectedBoundingBox.smallY
+                        amountToChopOff = np.random.randint(0, heightOfReflectionsBoundingBox + 1)
+
+                        # the small values represents the higher rows in the array
+                        gray[reflectedBoundingBox.smallY : reflectedBoundingBox.smallY + amountToChopOff, :] = 0
+                        depth[reflectedBoundingBox.smallY: reflectedBoundingBox.smallY + amountToChopOff, :] = 0
+
+                        reflectedBoundingBox.smallY = \
+                        reflectedBoundingBox.bigY - (heightOfReflectionsBoundingBox - amountToChopOff)
+                        # Setting the y values to be within the bounding box
+                        reflectedKeypointsArr.y[reflectedKeypointsArr.y < reflectedBoundingBox.smallY] = \
+                            reflectedBoundingBox.smallY
+
+                        # setting it to nan since everything that was chopped is no longer there
+                        # will be set to invisible when updatevisibility is called
+                        reflectedKeypointsArr.depth[ reflectedKeypointsArr.y < reflectedBoundingBox.smallY ] = np.nan
+                    # Updating the containers
                     reflectedFish.boundingBoxContainer[viewIdx] = reflectedBoundingBox
+                    reflectedFish.keypointContainer[viewIdx] = reflectedKeypointsArr
 
                     # In case you want segmentation annotations
                     if self.annotationsType == AnnotationsType.segmentation:
                         tempMask = np.zeros((imageSizeY, imageSizeX))
                         tempMask[0:topPoint, :] = np.copy(1 * grayFlipped[-topPoint * 2:-topPoint, :])
-
+                        if shouldBoxBeCutOff:
+                            tempMask[reflectedBoundingBox.smallY - amountToChopOff: reflectedBoundingBox.smallY, :] = 0
                         tempMask = tempMask.astype(np.uint8)
 
-                        contours = cv.findContours(tempMask, cv.RETR_TREE, cv.CHAIN_APPROX_NONE)
-                        contours = contours[0]
+                        contours, _ = cv.findContours(tempMask, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE)
                         numberOfContours = len(contours)
                         if numberOfContours != 0:
-                            contourToAdd = None
-                            maxAmountOfPoints = 0
-
-                            for contourIdx in range(numberOfContours):
-                                amountOfPoints = contours[contourIdx].shape[0]
-                                if maxAmountOfPoints <= amountOfPoints:
-                                    maxAmountOfPoints = amountOfPoints
-                                    contourToAdd = contours[contourIdx][:, 0, :]
-
-                            if contourToAdd is not None:
-                                reflectedFish.contourContainer[viewIdx] = contourToAdd
+                            contours = np.squeeze(contours[0])
+                            if contours.ndim != 1:
+                                reflectedFish.contourContainer[viewIdx] = contours
 
                     allG[fishIdx,...] = gray
                     allGDepth[fishIdx, ...] = depth
                     reflectedFishList.append(reflectedFish)
 
-            # Updating TODO check if this is really necessary
+            # Updating
             self.reflectedFishContainer[viewIdx] = reflectedFishList
             self.allGContainer[viewIdx] = allG
             self.allGDepthContainer[viewIdx] = allGDepth
@@ -593,30 +659,29 @@ class Aquarium:
             finalGDepth = self.finalDepthsContainer[viewIdx]
             # Real fishes
             for fishIdx, fish in enumerate(self.fishList):
-                keypoints = fish.keypointsListContainer[viewIdx]
-                for pointIdx , point in enumerate(keypoints):
-                    if point.isInBounds() and point.z == finalGDepth[point.getYInt(), point.getXInt()]:
-                        point.visibility = True
-                    else:
-                        point.visibility = False
-                    #Updating TODO check if this is necessary
-                    keypoints[pointIdx] = point
-                fish.keypointsListContainer[viewIdx] = keypoints
+                keypointsArray = fish.keypointContainer[viewIdx]
+                mask4Points = keypointsArray.inBoundsMask
+                arePointStillVis = \
+                    (keypointsArray.depth[mask4Points] ==
+                     finalGDepth[keypointsArray.yInt[mask4Points], keypointsArray.xInt[mask4Points]])
+                keypointsArray.visibility[mask4Points] = arePointStillVis
+                # Updating the containers/Lists
+                fish.keypointContainer[viewIdx] = keypointsArray
                 self.fishList[fishIdx] = fish
+
             # Fish reflections
             reflectedFishList = self.reflectedFishContainer[viewIdx]
             for fishIdx, fish in enumerate(reflectedFishList):
-                keypoints = fish.keypointsListContainer[viewIdx]
-                for pointIdx , point in enumerate(keypoints):
-                    if point.isInBounds() and point.z == finalGDepth[point.getYInt(), point.getXInt()]:
-                        point.visibility = True
-                    else:
-                        point.visibility = False
-                    # Updating TODO check if this is necessary
-                    keypoints[pointIdx] = point
-                fish.keypointsListContainer[viewIdx] = keypoints
+                keypointsArray = fish.keypointContainer[viewIdx]
+                mask = keypointsArray.inBoundsMask
+                arePointStillVis = (keypointsArray.depth[mask] ==
+                                    finalGDepth[ keypointsArray.yInt[mask], keypointsArray.xInt[mask] ])
+                keypointsArray.visibility[mask] = arePointStillVis
+                # Updating
+                fish.keypointContainer[viewIdx] = keypointsArray
                 reflectedFishList[fishIdx] = fish
             self.reflectedFishContainer[viewIdx] = reflectedFishList
+
 
     def addNoise(self):
         filter_size = 2 * roundHalfUp(np.random.rand(3)) + 3
@@ -645,7 +710,7 @@ class Aquarium:
                 gray = gray * 255
             gray = uint8(gray)
 
-            # Updating TODO, check if this is really necessary
+            # Updating
             self.finalGraysContainer[viewIdx] = gray
 
     def addPatchyNoise(self):
@@ -656,7 +721,6 @@ class Aquarium:
             boundingBoxList = [ fish.boundingBoxContainer[viewIdx] for fish in fishList]
 
             pvar = np.random.poisson(0.2)
-            pvar = 1
             if (pvar > 0):
                 for i in range(1, int(np.floor(pvar + 1))):
                     # No really necessary, but just to ensure we do not lose too many
@@ -670,7 +734,6 @@ class Aquarium:
                         # y, x
                         center = np.zeros((2))
                         shouldItGoOnAFish = True if np.random.rand() >.5 else False
-                        shouldItGoOnAFish = True
                         if shouldItGoOnAFish:
                             boundingBox = boundingBoxList[ idxListOfPatchebleFishes[centerIdx] ]
                             center[0] = (boundingBox.getHeight() * (np.random.rand() - .5)) + boundingBox.getCenterY()
@@ -698,7 +761,7 @@ class Aquarium:
                             np.random.rand() * 60 + 20) / 255 ** 2) + .00000000000000001)
                     gray = gray * (maxG / max(gray.flatten()))
 
-            # Updating TODO got to check if this is necessary
+            # Updating
             self.finalGraysContainer[viewIdx] = gray
 
     def getGrays(self):
@@ -742,7 +805,11 @@ class Aquarium:
                     f.write(str(viewIdx) + ' ')
 
                     for pIdx in range(contour.shape[0]):
-                        y = contour[pIdx, 1]
+                        try:
+                            y = contour[pIdx, 1]
+                        except:
+                            print('contours shape:', contour.shape)
+                            print('contours', contour)
                         x = contour[pIdx, 0]
 
                         f.write(str(x / imageSizeX) + ' ')
@@ -778,6 +845,7 @@ class Aquarium:
         for viewIdx in range(3):
             for fish in self.fishList:
                 keypoints = fish.keypointsListContainer[viewIdx]
+                keypointsArray = fish.keypointContainer[viewIdx]
                 boundingBox = fish.boundingBoxContainer[viewIdx]
 
                 # Should add a method to the bounding box, boundingBox.isSmallFishOnEdge()
@@ -785,33 +853,41 @@ class Aquarium:
                     f.write(str(viewIdx) + ' ')
                     f.write(str(boundingBox.getCenterX()/imageSizeX) + ' ' + str(boundingBox.getCenterY()/imageSizeY) + ' ')
                     f.write(str(boundingBox.getWidth()/imageSizeX) + ' ' + str(boundingBox.getHeight()/imageSizeY) + ' ')
-                    for point in keypoints:
+
+                    xArr = keypointsArray.x
+                    yArr = keypointsArray.y
+                    vis = keypointsArray.visibility
+                    for pointIdx in range(Aquarium.Fish.number_of_keypoints):
                         # Visibility is set to zero if they are out of bounds
                         # Just got to clip them so that YOLO does not throw an error
-                        x = np.clip(point.x, 0, imageSizeX - 1)
-                        y = np.clip(point.y, 0, imageSizeY - 1)
-
-                        f.write(str(x/imageSizeX) + ' ' + str(y/imageSizeY)
-                                + ' ' + str(int(point.visibility)) + ' ')
+                        x = np.clip(xArr[pointIdx], 0, imageSizeX - 1)
+                        y = np.clip(yArr[pointIdx], 0, imageSizeY - 1)
+                        f.write(str(x / imageSizeX) + ' ' + str(y / imageSizeY)
+                                + ' ' + str(int(vis[pointIdx])) + ' ')
                     f.write('\n')
 
             # Writing the reflections
             reflectedFishList = self.reflectedFishContainer[viewIdx]
             for fish in reflectedFishList:
                 keypoints = fish.keypointsListContainer[viewIdx]
+                keypointsArray = fish.keypointContainer[viewIdx]
                 boundingBox = fish.boundingBoxContainer[viewIdx]
 
                 if boundingBox.getArea() != 0:
                     f.write(str(viewIdx) + ' ')
                     f.write(str(boundingBox.getCenterX()/imageSizeX) + ' ' + str(boundingBox.getCenterY()/imageSizeY) + ' ')
                     f.write(str(boundingBox.getWidth()/imageSizeX) + ' ' + str(boundingBox.getHeight()/imageSizeY) + ' ')
-                    for point in keypoints:
+
+                    xArr = keypointsArray.x
+                    yArr = keypointsArray.y
+                    vis = keypointsArray.visibility
+                    for pointIdx in range(Aquarium.Fish.number_of_keypoints):
                         # Visibility is set to zero if they are out of bounds
                         # Just got to clip them so that YOLO does not throw an error
-                        x = np.clip(point.x, 0, imageSizeX - 1)
-                        y = np.clip(point.y, 0, imageSizeY - 1)
-                        f.write(str(x/imageSizeX) + ' ' + str(y/imageSizeY)
-                                + ' ' + str(int(point.visibility)) + ' ')
+                        x = np.clip(xArr[pointIdx], 0, imageSizeX - 1)
+                        y = np.clip(yArr[pointIdx], 0, imageSizeY - 1)
+                        f.write(str(x / imageSizeX) + ' ' + str(y / imageSizeY)
+                                + ' ' + str(int( vis[pointIdx] )) + ' ')
                     f.write('\n')
 
     def saveAnnotations(self):

@@ -1,4 +1,5 @@
 import numpy as np
+import numpy.ma as ma
 import scipy
 from scipy.io import loadmat
 import cv2 as cv
@@ -295,111 +296,67 @@ def createDepthArr(img, xIdx, yIdx, d):
     depthArrCutOut[img != 0] = depthArr[img != 0]
     return depthArrCutOut
 
-def merge2GraysWithEdgesBlured(grays, grayDepths,threshold = 25):
+def mergeGreysExactly(grays, depths):
     """
-        Function that merges two grayscale images aswell as the depth images
-        it also averages out the pixel values when two images overlap
-        to create a more natural picture
+        Function that merges grayscale images without blurring them
+    :param grays: numpy array of size( n_fishes, imageSizeY, imageSizeX)
+    :param depths: numpy array of size( n_fishes, imageSizeY, imageSizeX)
+    :return: 2 numpy arrays of size (imageSizeY, imageSizeX) representing the merged depths and grayscale images
+        also returns the indices of the fishes in the front
+    """
+    indicesForTwoAxis = np.indices(grays.shape[1:])
 
-        Args:
-            grays (numpy array): array containing two grayscale images
-            grayDepths (numpy array): array containing two depth images of the respective grayscale images
-            threshhold (int, optional): threshold as to when intersecting pixel values lower than this should be blurred
-                                        together
-        Returns:
-            grayFinal (numpy array): grayscale image resulting from merging
-            grayDepthFinal (numpy array): depth image resulting from merging
+    # indicesFor3dAxis = np.argmin(ma.masked_where(depths == 0, depths), axis=0)
+    # has to be masked so that you do not consider parts where there are only zeros
+    indicesFor3dAxis = np.argmin(ma.masked_where( grays == 0, depths  ), axis=0 )
+
+    indices2 = indicesFor3dAxis, indicesForTwoAxis[0], indicesForTwoAxis[1]
+
+    mergedGrays = grays[indices2]
+    mergedDepths = depths[ indices2]
+
+    return mergedGrays, mergedDepths , indices2
+
+def mergeGreys(grays, depths):
+    """
+        Function that merges grayscale images while also blurring the edges for a more realistic look
+    :param grays: numpy array of size( n_fishes, imageSizeY, imageSizeX)
+    :param depths: numpy array of size( n_fishes, imageSizeY, imageSizeX)
+    :return: 2 numpy arrays of size (imageSizeY, imageSizeX) representing the merged depths and grayscale images
     """
 
-    isFGZero = len(np.argwhere(grays[0] != 0)) == 0
-    isSGZero = len(np.argwhere(grays[1] != 0)) == 0
-    if isFGZero and not isSGZero:
-        return grays[1], grayDepths[1]
-    if isSGZero and not isFGZero:
-        return grays[0], grayDepths[0]
-    if isSGZero and isSGZero:
-        #Its zero either ways so just return it
-        return grays[0], grayDepths[0]
-
-
-    graysIntersection = grays[0] * grays[1]
-    graysIntersection[graysIntersection > 0] = 1
-
-    graysNonIntersection = np.copy(graysIntersection)
-    graysNonIntersection[graysNonIntersection == 0] = -999
-    graysNonIntersection[graysNonIntersection > 0] = 0
-    graysNonIntersection[graysNonIntersection < 0] = 1
-
-    grayDepthFinal = grayDepths[0] * graysNonIntersection + grayDepths[1] * graysNonIntersection
-    grayFinal = grays[0] * graysNonIntersection + grays[1] * graysNonIntersection
-
-
-    # Possible that this can also be done by creating repeated array of graysIntersection
-    # and multiplying it
-    graysDepthIntersection = np.zeros(grays.shape)
-    idxs = 0
-    for grayDepth in grayDepths:
-        graysDepthIntersection[idxs, :, :] = grayDepth * graysIntersection
-        idxs += 1
-
-    idxs = 0
-    for grayDepthIntersec in graysDepthIntersection:
-        grayFinal[np.all(np.delete(grayDepthIntersec < graysDepthIntersection[:], idxs, axis=0), axis=0)] = \
-            (grays[idxs])[np.all(np.delete(grayDepthIntersec < graysDepthIntersection[:], idxs, axis=0), axis=0)]
-
-        grayDepthFinal[ np.all(np.delete(grayDepthIntersec < graysDepthIntersection[:], idxs, axis=0), axis=0) ] = \
-            (grayDepths[idxs])[ np.all(np.delete(grayDepthIntersec < graysDepthIntersection[:], idxs, axis=0), axis=0) ]
-        idxs += 1
-
-
-    # Fixing the edges of the fishes
-    #Multiplication by the intersection in the second part probably not needed
-    grayFinal[ np.logical_and((grays[0] * graysIntersection) <= threshold, (grayDepths[0] * graysIntersection) < (grayDepths[1] * graysIntersection))] = \
-        np.maximum(grays[0],grays[1])[np.logical_and((grays[0] * graysIntersection) <= threshold, (grayDepths[0] * graysIntersection) < (grayDepths[1] * graysIntersection))]
-
-    grayFinal[ np.logical_and((grays[1] * graysIntersection) <= threshold, (grayDepths[1] * graysIntersection) < (grayDepths[0] * graysIntersection))] = \
-        np.maximum(grays[0],grays[1])[np.logical_and((grays[1] * graysIntersection) <= threshold, (grayDepths[1] * graysIntersection) < (grayDepths[0] * graysIntersection))]
-
-    return grayFinal, grayDepthFinal
-
-def mergeMultipleGrayswithEdgesBlurred(grays,grayDepths):
-    """
-        Function that merges multiple grayscale images, it does so by merging two images at a time
-        until it reaches the end
-
-        Args:
-            grays (numpy array): 3d array of size amountOfImages by imageSizeY by imageSizeX containing grayscale images
-            grayDepths (numpy array): 3d array of same size as grays, but containing the depth of each grayscale image
-        Returns:
-            latestGrayMerge (numpy array): grayscale image resulting from merging
-            latestGrayDepthMerge (numpy array): depth image resulting from merging, important for checking visibility
-    """
-    # Accounting for the special cases where amountOfImages < 2
+    # Checking for special cases
     amountOfFishes = grays.shape[0]
     if amountOfFishes == 1:
-        return grays[0], grayDepths[0]
+        return grays[0], depths[0]
     if amountOfFishes == 0 :
         return np.zeros((grays.shape[1:3])), np.zeros((grays.shape[1:3]))
 
+    threshold = 25
+    mergedGrays, mergedDepths, indices = mergeGreysExactly(grays, depths)
 
-    amountOfGrays = (grays.shape)[0]
+    # Blurring the edges
 
-    twoGraysArr = grays[0:2]
-    twoGraysDepths = grayDepths[0:2]
+    # will be used as the brightness when there is no fish underneath the edges with
+    # brightness greater than the threshold
+    maxes = np.max(grays, axis=0)
 
-    latestGrayMerge, latestGrayDepthMerge = merge2GraysWithEdgesBlured(twoGraysArr,twoGraysDepths)
-    if amountOfGrays == 2:
-        return latestGrayMerge, latestGrayDepthMerge
-    else:
-        #will have to check if I can include multple things in for loop
-        idxs = 2
-        for grayRemaining in grays[2:]:
-            nextUpGrays = np.array([latestGrayMerge,grayRemaining])
-            nextUpGrayDepths = np.array([latestGrayDepthMerge, grayDepths[idxs]])
-            latestGrayMerge, latestGrayDepthMerge = merge2GraysWithEdgesBlured(nextUpGrays,nextUpGrayDepths)
-            idxs += 1
+    # will be used as the ordered version of brightnesses greater than the threshold
+    grays[grays < threshold] = 0
+    graysBiggerThanThresholdMerged, _, _ = mergeGreysExactly(grays, depths)
 
-    return latestGrayMerge, latestGrayDepthMerge
+    # applying the values to the edges
+    indicesToBlurr = np.logical_and( np.logical_and( mergedGrays < threshold, mergedGrays > 0 ),
+                                     graysBiggerThanThresholdMerged > 0 )
+    mergedGrays[ indicesToBlurr ] = graysBiggerThanThresholdMerged[ indicesToBlurr ]
+    indicesToBlurr = np.logical_and( np.logical_and( mergedGrays < threshold, mergedGrays > 0 ),
+                                     maxes > 0)
+    mergedGrays[ indicesToBlurr ] = maxes[indicesToBlurr]
+
+    # NOTE: we could technically also blurr the depths?
+    return mergedGrays, mergedDepths
+
+
 
 # Inputs
 fish_shapes = 'generated_pose_100_percent.mat'
