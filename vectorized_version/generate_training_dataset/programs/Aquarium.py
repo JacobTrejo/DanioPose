@@ -250,16 +250,6 @@ class Aquarium:
                 keypointsArray.depth[mask4Points] = \
                     depthIm[keypointsArray.yInt[mask4Points], keypointsArray.xInt[mask4Points]]
 
-                # for pointIdx, point in enumerate(keypointsList):
-                #     if point.isInBounds():
-                #         point.z = depthIm[point.getYInt(), point.getXInt()]
-                #         point.visibility = True
-                #     else:
-                #         point.visibility = False
-                #     keypointsList[pointIdx] = point
-
-                # # Updating, # TODO check if this is necessary
-                # self.keypointsListContainer[viewIdx] = keypointsList
                 self.keypointContainer[viewIdx] = keypointsArray
 
                 # Finding the bounding box
