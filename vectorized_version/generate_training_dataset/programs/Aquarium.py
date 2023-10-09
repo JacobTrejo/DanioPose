@@ -218,17 +218,7 @@ class Aquarium:
                         contours = np.squeeze(contours[0])
                         if contours.ndim != 1:
                             self.contourContainer[viewIdx] = contours
-                        # contourToAdd = None
-                        # maxAmountOfPoints = 0
-                        #
-                        # for contourIdx in range(numberOfContours):
-                        #     amountOfPoints = contours[contourIdx].shape[0]
-                        #     if maxAmountOfPoints <= amountOfPoints:
-                        #         maxAmountOfPoints = amountOfPoints
-                        #         contourToAdd = contours[contourIdx][:, 0, :]
-                        #
-                        # if contourToAdd is not None:
-                        #     self.contourContainer[viewIdx] = contourToAdd
+
 
             coorsContainer = [c_b, c_s1, c_s2]
             eyesContainer = [eye_b, eye_s1, eye_s2]
@@ -236,7 +226,6 @@ class Aquarium:
             for viewIdx in range(3):
                 coors = coorsContainer[viewIdx]
                 eyes = eyesContainer[viewIdx]
-                pointsInViewList = self.keypointsListContainer[viewIdx]
                 depths = depthsContainer[viewIdx]
 
                 x = np.concatenate((coors[0,:], eyes[0,:]))
@@ -244,9 +233,6 @@ class Aquarium:
                 keypointsArray = Aquarium.Fish.KeypointsArray(x,y,depths)
                 self.keypointContainer.append(keypointsArray)
 
-                # # Updating, sometimes necessary, will have to check if it is in this case
-                # self.keypointsListContainer[viewIdx] = pointsInViewList
-            # self.keypointsListContainer = [pointsInViewBList, keypointsListContainer[0], keypointsListContainer[1]]
             # Creating Depth Arrays, Updating Eyes, and getting their bounding boxes
             for viewIdx in range(3):
                 gray = self.graysContainer[viewIdx]
@@ -545,7 +531,6 @@ class Aquarium:
                     # the observed reflections
                     probToCutOffReflection = .5
                     shouldBoxBeCutOff = True if np.random.rand() < probToCutOffReflection else False
-                    shouldBoxBeCutOff = False
                     if shouldBoxBeCutOff:
                         heightOfReflectionsBoundingBox = reflectedBoundingBox.bigY - reflectedBoundingBox.smallY
                         amountToChopOff = np.random.randint(0, heightOfReflectionsBoundingBox + 1)
@@ -744,11 +729,7 @@ class Aquarium:
                     f.write(str(viewIdx) + ' ')
 
                     for pIdx in range(contour.shape[0]):
-                        try:
-                            y = contour[pIdx, 1]
-                        except:
-                            print('contours shape:', contour.shape)
-                            print('contours', contour)
+                        y = contour[pIdx, 1]
                         x = contour[pIdx, 0]
 
                         f.write(str(x / imageSizeX) + ' ')
@@ -783,7 +764,6 @@ class Aquarium:
         f = open(labelsPath, 'w')
         for viewIdx in range(3):
             for fish in self.fishList:
-                keypoints = fish.keypointsListContainer[viewIdx]
                 keypointsArray = fish.keypointContainer[viewIdx]
                 boundingBox = fish.boundingBoxContainer[viewIdx]
 
@@ -808,7 +788,6 @@ class Aquarium:
             # Writing the reflections
             reflectedFishList = self.reflectedFishContainer[viewIdx]
             for fish in reflectedFishList:
-                keypoints = fish.keypointsListContainer[viewIdx]
                 keypointsArray = fish.keypointContainer[viewIdx]
                 boundingBox = fish.boundingBoxContainer[viewIdx]
 
