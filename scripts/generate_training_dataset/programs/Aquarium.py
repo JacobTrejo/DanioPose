@@ -96,7 +96,6 @@ class Aquarium:
                 if zArr is not None:
                     self.depth[:zArr.shape[0]] = zArr
 
-
                 # right now the visibility only depends on if the point is in the frame
                 self.visibility = self.inBoundsMask
 
