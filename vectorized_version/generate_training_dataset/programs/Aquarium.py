@@ -5,9 +5,9 @@ import cv2 as cv
 import math
 import copy
 from skimage.util import random_noise
-from programs.programsForDrawingImage import *
+# from programs.programsForDrawingImage import *
 from programs.programsForGeneratingRandomFishes import *
-
+from programs.programsForDrawingImageNoRandom import *
 class AnnotationsType:
     """
         Static class that holds flags for the types of annotations
@@ -164,6 +164,8 @@ class Aquarium:
         number_of_backbone_points = 10
         proj_params = 'proj_params_101019_corrected_new'
         proj_params = inputsFolder + proj_params
+        mat = loadmat(proj_params)
+        proj_params = mat['proj_params']
 
         lut_b_tail = 'lut_b_tail.mat'
         lut_s_tail = 'lut_s_tail.mat'
@@ -201,8 +203,9 @@ class Aquarium:
 
         def draw(self):
             [gray_b, gray_s1, gray_s2, crop_b, crop_s1, crop_s2, c_b, c_s1, c_s2, eye_b, eye_s1, eye_s2, self.coor_3d] = \
-                return_graymodels_fish(self.x, Aquarium.Fish.lut_b_tail, Aquarium.Fish.lut_s_tail, Aquarium.Fish.proj_params, self.fishlen,
-                                       imageSizeX, imageSizeY)
+                return_graymodels_fish(self.x, Aquarium.Fish.proj_params, self.fishlen, imageSizeX, imageSizeY)
+
+
 
             self.graysContainer = [gray_b, gray_s1, gray_s2]
             self.cropsContainer = [crop_b, crop_s1, crop_s2]

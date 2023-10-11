@@ -72,7 +72,7 @@ def bellymodel(x, y, z, seglen, brightness, size_lut):
            size_lut (float): size of the box in which the fish is rendered
 
        Returns:
-            a rounded the way that matlab would
+           look up table for the belly model
     """
     belly_w = seglen * (0.499 + (np.random.rand() - 0.5)*0.03)
     belly_l = seglen * (1.2500 + (np.random.rand() - 0.5)*0.07)
@@ -269,15 +269,16 @@ def gen_lut_s_tail(n, seglenidx, d1, d2, a):
        Function to generate look up table for side view
 
        Args:
-           n (numpy array): unnecessary TODO : delete
-           seglendix (numpy array): seglen
-           d1 (numpy array): distance ? TODO: search what this is
-           d2 (float): distance ? TODO: search what this is
-           angle (float): TODO
+           n (numpy array): idx for ball size and thickness
+           nseglen (float): seglen
+           d1 (int): distance of the box in the x direction
+           d2 (int): distance of the box in the y direction
+           a (float): angle
+           rand (float): random number used to affect the ball size and thickness
 
        Returns:
             lut (numpy array): numpy array representing tail from the side view
-       """
+    """
 
     size_lut = 15
 
@@ -448,15 +449,16 @@ def gen_lut_b_tail(n, nseglen, d1, d2, a):
        Function to generate look up table for bottom view
 
        Args:
-           n (numpy array): unnecessary TODO : delete
-           nseglen (numpy array): seglen
-           d1 (numpy array): distance ? TODO: search what this is
-           d2 (float): distance ? TODO: search what this is
-           a (): No use should be deleted
+           n (numpy array): idx for ball size and thickness
+           nseglen (float): seglen
+           d1 (int): distance of the box in the x direction
+           d2 (int): distance of the box in the y direction
+           a (float): angle
+           rand (float): random number used to affect the ball size and thickness
 
        Returns:
             lut (numpy array): numpy array representing tail from the bottom view
-       """
+    """
     size_lut = 19
     size_half = (size_lut+1)/2
 
@@ -675,7 +677,7 @@ def project_camera_copy(model, X, Y, Z, proj_params, indices, cb, cs1, cs2):
             projection_b (numpy array): projection of the model in the bottom view
             projection_s1 (numpy array): projection of the model in view s1
             projection_s2 (numpy array): projection of the model in view s2
-       """
+    """
 
     (coor_b, coor_s1, coor_s2) = calc_proj_w_refra_cpu(np.array([X, Y, Z]), proj_params)
 
@@ -780,25 +782,25 @@ def Rz(theta):
 
 def reorient_model(model, x_c, y_c, z_c, heading, inclination, roll, ref_vec, hinge):
     """
-       Function used to make image have static noise
+       Function used rotate points
 
        Args:
            model (numpy array): array representing model
-           x_c (numpy array): mean
-           y_c (numpy array): mean
-           z_c (numpy array): mean
+           x_c (numpy array): x coordinates
+           y_c (numpy array): y coordinates
+           z_c (numpy array): z coordinates
            heading (float): rotation parameter
-           inclination (float): rotation parameter
-           roll (float): rotation parameter
-           ref_vec (numpy array): where the rotation is occurring around?
-           hinge (numpy array): TODO: look into this
+           inclination (float): inclination angle
+           roll (float): value for the roll rotations
+           ref_vec (numpy array): where the rotation is occurring around
+           hinge (numpy array): values of the hinge rotation
 
        Returns:
             x (numpy array): of models new x coordinates
             y (numpy array): of models new y coordinates
             z (numpy array): of models new z coordinates
             indices (numpy array): valid coordinates ?
-       """
+    """
 
 
     if (np.any(model) == False):
