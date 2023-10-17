@@ -21,250 +21,246 @@ class AnnotationsType:
     # Potential for resnet annotations
     # or annotations in .npy files instead of text
 
-class Aquarium:
+class Bounding_Box:
+    """
+        Class that represents the bounding box of the fish
 
-    class Fish:
+        Static Properties:
+            areaThreshold: value representing the minimal area that a bounding box can have in order to be considered
+                            a fish that can hold annotations, used for ignoring barely visible fish in the edges aswell
+                            as adding patchy noise
+        Properties:
+            smallX (int): smallest x value of the bounding box
+            smallY (int): smallest y value of the bounding box
+            bigX (int): biggest x value of the bounding box
+            bigY (int): biggest y value of the bounding box
 
-        class Bounding_Box:
-            """
-                Class that represents the bounding box of the fish
+        Methods:
+            __init__, args(int, int, int, int): creates an object representing the bounding box of the fish,
+                                                given the smallest x value of the box, the smallest y value of the box
+                                                the biggest x value of the box, and the biggest Y value of the box
 
-                Static Properties:
-                    areaThreshold: value representing the minimal area that a bounding box can have in order to be considered
-                                    a fish that can hold annotations, used for ignoring barely visible fish in the edges aswell
-                                    as adding patchy noise
-                Properties:
-                    smallX (int): smallest x value of the bounding box
-                    smallY (int): smallest y value of the bounding box
-                    bigX (int): biggest x value of the bounding box
-                    bigY (int): biggest y value of the bounding box
+            getCenterX(): returns the x coordinate of the center of teh bounding box
+            getCenterY(): returns y coordinate of the center of the bounding box
+            getWidth(): returns the width of the bounding box
+            getHeight(): returns height of the bounding box
+            getArea(): returns the area of the bounding box
+            isBigEnough(): returns the True or False depending on whether the area of the bounding box is
+                            greater that the threshold
+    """
+    areaThreshold = 25
 
-                Methods:
-                    __init__, args(int, int, int, int): creates an object representing the bounding box of the fish,
-                                                        given the smallest x value of the box, the smallest y value of the box
-                                                        the biggest x value of the box, and the biggest Y value of the box
+    def __init__(self, smallX = 0, smallY = 0, bigX = 0, bigY = 0):
+        self.smallX = smallX
+        self.smallY = smallY
+        self.bigX = bigX
+        self.bigY = bigY
 
-                    getCenterX(): returns the x coordinate of the center of teh bounding box
-                    getCenterY(): returns y coordinate of the center of the bounding box
-                    getWidth(): returns the width of the bounding box
-                    getHeight(): returns height of the bounding box
-                    getArea(): returns the area of the bounding box
-                    isBigEnough(): returns the True or False depending on whether the area of the bounding box is
-                                    greater that the threshold
-            """
-            areaThreshold = 25
+    def getCenterX(self):
+        return int(roundHalfUp((self.bigX + self.smallX) / 2))
 
-            def __init__(self, smallX = 0, smallY = 0, bigX = 0, bigY = 0):
-                self.smallX = smallX
-                self.smallY = smallY
-                self.bigX = bigX
-                self.bigY = bigY
+    def getCenterY(self):
+        return int(roundHalfUp((self.bigY + self.smallY) / 2))
 
-            def getCenterX(self):
-                return int(roundHalfUp((self.bigX + self.smallX) / 2))
+    def getWidth(self):
+        width = (self.bigX - self.smallX)
+        # Not really considered a box if it is out of bounds
+        return (width if width > 0 else 0)
 
-            def getCenterY(self):
-                return int(roundHalfUp((self.bigY + self.smallY) / 2))
+    def getHeight(self):
+        height = (self.bigY - self.smallY)
+        # Not really considered a box if it is out of bounds
+        return (height if height > 0 else 0)
 
-            def getWidth(self):
-                width = (self.bigX - self.smallX)
-                # Not really considered a box if it is out of bounds
-                return (width if width > 0 else 0)
+    def getArea(self):
+        return self.getWidth() * self.getHeight()
 
-            def getHeight(self):
-                height = (self.bigY - self.smallY)
-                # Not really considered a box if it is out of bounds
-                return (height if height > 0 else 0)
+    def isBigEnough(self):
+        return True if self.getArea() > Bounding_Box.areaThreshold else False
 
-            def getArea(self):
-                return self.getWidth() * self.getHeight()
+class KeypointsArray:
+    """
+        Class which stores keypoints in an array for vectorization purposes
+    """
+    def __init__(self, xArr, yArr, zArr = None):
+        self.x = xArr
+        self.xInt = roundHalfUp(xArr).astype(int)
+        self._y = yArr
+        self.yInt = roundHalfUp(yArr).astype(int)
+        self.visibility = np.zeros((Fish.number_of_keypoints))
+        self.depth = np.zeros((Fish.number_of_keypoints))
+        if zArr is not None:
+            self.depth[:zArr.shape[0]] = zArr
 
-            def isBigEnough(self):
-                return True if self.getArea() > Aquarium.Fish.Bounding_Box.areaThreshold else False
+        # right now the visibility only depends on if the point is in the frame
+        self.visibility = self.inBoundsMask
 
-        class KeypointsArray:
-            """
-                Class which stores keypoints in an array for vectorization purposes
-            """
-            def __init__(self, xArr, yArr, zArr = None):
-                self.x = xArr
-                self.xInt = roundHalfUp(xArr).astype(int)
-                self._y = yArr
-                self.yInt = roundHalfUp(yArr).astype(int)
-                self.visibility = np.zeros((Aquarium.Fish.number_of_keypoints))
-                self.depth = np.zeros((Aquarium.Fish.number_of_keypoints))
-                if zArr is not None:
-                    self.depth[:zArr.shape[0]] = zArr
-
-                # right now the visibility only depends on if the point is in the frame
-                self.visibility = self.inBoundsMask
-
-            @ property
-            def inBoundsMask(self):
-                isXInBounds = (self.xInt >= 0) * (self.xInt < imageSizeX)
-                isYInBounds = (self.yInt >= 0) * (self.yInt < imageSizeY)
-                return isXInBounds * isYInBounds
-            # y gets modified when getting reflected fishes, hence why it has to be a bit different
-            @ property
-            def y(self):
-                return self._y
-            @ y.setter
-            def y(self,value):
-                #self.keypointsArray[1,:] = value
-                self._y = value
-                self.yInt = roundHalfUp(value).astype(int)
+    @ property
+    def inBoundsMask(self):
+        isXInBounds = (self.xInt >= 0) * (self.xInt < imageSizeX)
+        isYInBounds = (self.yInt >= 0) * (self.yInt < imageSizeY)
+        return isXInBounds * isYInBounds
+    # y gets modified when getting reflected fishes, hence why it has to be a bit different
+    @ property
+    def y(self):
+        return self._y
+    @ y.setter
+    def y(self,value):
+        #self.keypointsArray[1,:] = value
+        self._y = value
+        self.yInt = roundHalfUp(value).astype(int)
 
 
-        # Fish Class Begins
-        """
-            Class representing a fish
+class Fish:
+    """
+        Class representing a fish
 
-            Static Properties:
-                number_of_keypoints(int):  number of keypoints, set to 12
-                number_of_backbone_points: number of backbone_points, set to 10
+        Static Properties:
+            number_of_keypoints(int):  number of keypoints, set to 12
+            number_of_backbone_points: number of backbone_points, set to 10
 
-                proj_params (string): path to mat file containing projection parameters
-                lut_b_tail = path to mat file containing the look up table for bottom view
-                lut_s_tail = path to mat file containing the look up table for side view
-                fish_shapes = path to mat file containing the look up table for fish positions
-                lut_b_tail_mat (dict): dictionary of loaded lut_b
-                lut_b_tail (numpy array): numpy array of lut_b
-                lut_s_tail_mat (dict): dictionary of loaded lut_s
-                lut_s_tail numpy array): numpy array of lut_s
+            proj_params (string): path to mat file containing projection parameters
+            lut_b_tail = path to mat file containing the look up table for bottom view
+            lut_s_tail = path to mat file containing the look up table for side view
+            fish_shapes = path to mat file containing the look up table for fish positions
+            lut_b_tail_mat (dict): dictionary of loaded lut_b
+            lut_b_tail (numpy array): numpy array of lut_b
+            lut_s_tail_mat (dict): dictionary of loaded lut_s
+            lut_s_tail numpy array): numpy array of lut_s
 
-            Properties:
-                x (numpy array): 22 parameter vector representing the fish position
-                fishlen (float): fish length
+        Properties:
+            x (numpy array): 22 parameter vector representing the fish position
+            fishlen (float): fish length
 
-                graysContainer (list): containing the grayscale images from the three camera views: 'B', 'S1', 'S2'
-                depthsContainer (list): containing depth for each image
-                annotationsType (AnnotationsType): type depicting which annotations are desired
-
-                # For keypoint annotations, default
-                keypointsListContainer (list): Container for the keypoints as seen from each camera view
-                boundingBoxContainer (list): Container for the bounding boxes as seen from each camera view
-
-                # For segmentation annotations
-                contourContainer (list): Container for the contours of the fish as seen from each camera view
-
-                # TODO: check if these should be deleted
-                cropsContainer (list): Container for the crops of the images from each camera view
-                coor_3d (numpy array): coordinates in 3d space
-
-            Methods:
-                __init__, args(float, numpy array, AnnotationsType = keypoint): creates an instance of a fish as depicted by
-                    its 22 parameter vector an length.  It also sets the fish instance with the annotations you want, by
-                    default it is set to keypoint annotations.
-
-                draw(): generates the images of the fish as seen from all three camera views.  It assigns values to the
-                    graysContainer,  depthsContainer, keypointsListContainer/contourContainer, and boundingBoxContainer.
-        """
-        # Static properties of Fish Class
-        number_of_keypoints = 12
-        number_of_backbone_points = 10
-        proj_params = 'proj_params_101019_corrected_new'
-        proj_params = inputsFolder + proj_params
-        mat = loadmat(proj_params)
-        proj_params = mat['proj_params']
-
-        lut_b_tail = 'lut_b_tail.mat'
-        lut_s_tail = 'lut_s_tail.mat'
-        fish_shapes = 'generated_pose_100_percent.mat'
-        fish_shapes = inputsFolder + fish_shapes
-
-        lut_s_tail_mat = loadmat(inputsFolder + lut_b_tail)
-        lut_b_tail = lut_s_tail_mat['lut_b_tail']
-
-        lut_s_tail_mat = loadmat(inputsFolder + lut_s_tail)
-        lut_s_tail = lut_s_tail_mat['lut_s_tail']
-
-        def __init__(self, fishlen, x, annotationsType = AnnotationsType.keypoint):
-            self.x = x
-            self.fishlen = fishlen
-
-            self.graysContainer = []
-            self.depthsContainer = []
-            self.annotationsType = annotationsType
+            graysContainer (list): containing the grayscale images from the three camera views: 'B', 'S1', 'S2'
+            depthsContainer (list): containing depth for each image
+            annotationsType (AnnotationsType): type depicting which annotations are desired
 
             # For keypoint annotations, default
-            self.keypointsListContainer = [[], [], []]
-            # New version of the above
-            self.keypointContainer = []
-            self.boundingBoxContainer = [Aquarium.Fish.Bounding_Box(),
-                                         Aquarium.Fish.Bounding_Box(),
-                                         Aquarium.Fish.Bounding_Box()]
+            keypointsListContainer (list): Container for the keypoints as seen from each camera view
+            boundingBoxContainer (list): Container for the bounding boxes as seen from each camera view
 
             # For segmentation annotations
-            self.contourContainer = [None, None, None]
+            contourContainer (list): Container for the contours of the fish as seen from each camera view
 
-            # Old version of the script used these
-            self.cropsContainer = []
-            self.coor_3d = None
+            # TODO: check if these should be deleted
+            cropsContainer (list): Container for the crops of the images from each camera view
+            coor_3d (numpy array): coordinates in 3d space
 
-        def draw(self):
-            [gray_b, gray_s1, gray_s2, crop_b, crop_s1, crop_s2, c_b, c_s1, c_s2, eye_b, eye_s1, eye_s2, self.coor_3d] = \
-                return_graymodels_fish(self.x, Aquarium.Fish.proj_params, self.fishlen, imageSizeX, imageSizeY)
+        Methods:
+            __init__, args(float, numpy array, AnnotationsType = keypoint): creates an instance of a fish as depicted by
+                its 22 parameter vector an length.  It also sets the fish instance with the annotations you want, by
+                default it is set to keypoint annotations.
+
+            draw(): generates the images of the fish as seen from all three camera views.  It assigns values to the
+                graysContainer,  depthsContainer, keypointsListContainer/contourContainer, and boundingBoxContainer.
+    """
+    # Static properties of Fish Class
+    number_of_keypoints = 12
+    number_of_backbone_points = 10
+    proj_params = 'proj_params_101019_corrected_new'
+    proj_params = inputsFolder + proj_params
+    mat = loadmat(proj_params)
+    proj_params = mat['proj_params']
+
+    lut_b_tail = 'lut_b_tail.mat'
+    lut_s_tail = 'lut_s_tail.mat'
+    fish_shapes = 'generated_pose_100_percent.mat'
+    fish_shapes = inputsFolder + fish_shapes
+
+    lut_s_tail_mat = loadmat(inputsFolder + lut_b_tail)
+    lut_b_tail = lut_s_tail_mat['lut_b_tail']
+
+    lut_s_tail_mat = loadmat(inputsFolder + lut_s_tail)
+    lut_s_tail = lut_s_tail_mat['lut_s_tail']
+
+    def __init__(self, fishlen, x, annotationsType = AnnotationsType.keypoint):
+        self.x = x
+        self.fishlen = fishlen
+
+        self.graysContainer = []
+        self.depthsContainer = []
+        self.annotationsType = annotationsType
+
+        # For keypoint annotations, default
+        self.keypointsListContainer = [[], [], []]
+        # New version of the above
+        self.keypointContainer = []
+        self.boundingBoxContainer = [Bounding_Box(),
+                                     Bounding_Box(),
+                                     Bounding_Box()]
+
+        # For segmentation annotations
+        self.contourContainer = [None, None, None]
+
+        # Old version of the script used these
+        self.cropsContainer = []
+        self.coor_3d = None
+
+    def draw(self):
+        [gray_b, gray_s1, gray_s2, crop_b, crop_s1, crop_s2, c_b, c_s1, c_s2, eye_b, eye_s1, eye_s2, self.coor_3d] = \
+            return_graymodels_fish(self.x, Fish.proj_params, self.fishlen, imageSizeX, imageSizeY)
 
 
 
-            self.graysContainer = [gray_b, gray_s1, gray_s2]
-            self.cropsContainer = [crop_b, crop_s1, crop_s2]
+        self.graysContainer = [gray_b, gray_s1, gray_s2]
+        self.cropsContainer = [crop_b, crop_s1, crop_s2]
 
-            if self.annotationsType == AnnotationsType.segmentation:
-                for viewIdx in range(3):
-                    ########################
-                    gray = self.graysContainer[viewIdx]
-                    gray = gray.astype(np.uint8)
-                    contours, _ = cv.findContours(gray, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE)
-                    numberOfContours = len(contours)
-                    if numberOfContours != 0:
-                        contours = np.squeeze(contours[0])
-                        if contours.ndim != 1:
-                            self.contourContainer[viewIdx] = contours
-
-
-            coorsContainer = [c_b, c_s1, c_s2]
-            eyesContainer = [eye_b, eye_s1, eye_s2]
-            depthsContainer = [imageSizeY - c_s1[1, :], c_b[0, :], c_b[1, :]]
+        if self.annotationsType == AnnotationsType.segmentation:
             for viewIdx in range(3):
-                coors = coorsContainer[viewIdx]
-                eyes = eyesContainer[viewIdx]
-                depths = depthsContainer[viewIdx]
-
-                x = np.concatenate((coors[0,:], eyes[0,:]))
-                y = np.concatenate((coors[1,:], eyes[1,:]))
-                keypointsArray = Aquarium.Fish.KeypointsArray(x,y,depths)
-                self.keypointContainer.append(keypointsArray)
-
-            # Creating Depth Arrays, Updating Eyes, and getting their bounding boxes
-            for viewIdx in range(3):
+                ########################
                 gray = self.graysContainer[viewIdx]
-                # keypointsList = self.keypointsListContainer[viewIdx]
-                keypointsArray = self.keypointContainer[viewIdx]
-                #  Creating Depth Arrays  img,  y coor,   x coor,   depth coor
-                xArr = keypointsArray.x[:Aquarium.Fish.number_of_backbone_points]
-                yArr = keypointsArray.y[:Aquarium.Fish.number_of_backbone_points]
-                depth = keypointsArray.depth[:Aquarium.Fish.number_of_backbone_points]
-                depthIm = createDepthArr(gray, yArr, xArr, depth)
-                (self.depthsContainer).append(depthIm)
+                gray = gray.astype(np.uint8)
+                contours, _ = cv.findContours(gray, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE)
+                numberOfContours = len(contours)
+                if numberOfContours != 0:
+                    contours = np.squeeze(contours[0])
+                    if contours.ndim != 1:
+                        self.contourContainer[viewIdx] = contours
 
-                # Updating the depth to be able to compare it after merging the images
-                mask4Points = keypointsArray.inBoundsMask
-                keypointsArray.depth[mask4Points] = \
-                    depthIm[keypointsArray.yInt[mask4Points], keypointsArray.xInt[mask4Points]]
 
-                self.keypointContainer[viewIdx] = keypointsArray
+        coorsContainer = [c_b, c_s1, c_s2]
+        eyesContainer = [eye_b, eye_s1, eye_s2]
+        depthsContainer = [imageSizeY - c_s1[1, :], c_b[0, :], c_b[1, :]]
+        for viewIdx in range(3):
+            coors = coorsContainer[viewIdx]
+            eyes = eyesContainer[viewIdx]
+            depths = depthsContainer[viewIdx]
 
-                # Finding the bounding box
-                nonZeroPoints = np.argwhere(gray != 0)
-                if len(nonZeroPoints) != 0:
-                    [smallY, smallX, bigY, bigX] = [np.min(nonZeroPoints[:, 0]), np.min(nonZeroPoints[:, 1]),
-                                                    np.max(nonZeroPoints[:, 0]), np.max(nonZeroPoints[:, 1])]
+            x = np.concatenate((coors[0,:], eyes[0,:]))
+            y = np.concatenate((coors[1,:], eyes[1,:]))
+            keypointsArray = KeypointsArray(x,y,depths)
+            self.keypointContainer.append(keypointsArray)
 
-                    boundingBox = Aquarium.Fish.Bounding_Box(smallX, smallY, bigX, bigY)
-                    self.boundingBoxContainer[viewIdx] = boundingBox
+        # Creating Depth Arrays, Updating Eyes, and getting their bounding boxes
+        for viewIdx in range(3):
+            gray = self.graysContainer[viewIdx]
+            # keypointsList = self.keypointsListContainer[viewIdx]
+            keypointsArray = self.keypointContainer[viewIdx]
+            #  Creating Depth Arrays  img,  y coor,   x coor,   depth coor
+            xArr = keypointsArray.x[:Fish.number_of_backbone_points]
+            yArr = keypointsArray.y[:Fish.number_of_backbone_points]
+            depth = keypointsArray.depth[:Fish.number_of_backbone_points]
+            depthIm = createDepthArr(gray, yArr, xArr, depth)
+            (self.depthsContainer).append(depthIm)
 
-    # Aquarium Class Begins
+            # Updating the depth to be able to compare it after merging the images
+            mask4Points = keypointsArray.inBoundsMask
+            keypointsArray.depth[mask4Points] = \
+                depthIm[keypointsArray.yInt[mask4Points], keypointsArray.xInt[mask4Points]]
+
+            self.keypointContainer[viewIdx] = keypointsArray
+
+            # Finding the bounding box
+            nonZeroPoints = np.argwhere(gray != 0)
+            if len(nonZeroPoints) != 0:
+                [smallY, smallX, bigY, bigX] = [np.min(nonZeroPoints[:, 0]), np.min(nonZeroPoints[:, 1]),
+                                                np.max(nonZeroPoints[:, 0]), np.max(nonZeroPoints[:, 1])]
+
+                boundingBox = Bounding_Box(smallX, smallY, bigX, bigY)
+                self.boundingBoxContainer[viewIdx] = boundingBox
+
+class Aquarium:
     """
         Class representing a container for the fishes.  It serves to merge all the images of the fishes aswell as get
         the annotations of the fishes.
@@ -372,7 +368,7 @@ class Aquarium:
         for fishVect in fishVectList:
             fishlen = fishVect[0]
             x = fishVect[1:]
-            fish = Aquarium.Fish(fishlen, x, self.annotationsType)
+            fish = Fish(fishlen, x, self.annotationsType)
             (self.fishList).append(fish)
 
         if self.waterLevel is None:
@@ -769,7 +765,7 @@ class Aquarium:
                     xArr = keypointsArray.x
                     yArr = keypointsArray.y
                     vis = keypointsArray.visibility
-                    for pointIdx in range(Aquarium.Fish.number_of_keypoints):
+                    for pointIdx in range(Fish.number_of_keypoints):
                         # Visibility is set to zero if they are out of bounds
                         # Just got to clip them so that YOLO does not throw an error
                         x = np.clip(xArr[pointIdx], 0, imageSizeX - 1)
@@ -792,7 +788,7 @@ class Aquarium:
                     xArr = keypointsArray.x
                     yArr = keypointsArray.y
                     vis = keypointsArray.visibility
-                    for pointIdx in range(Aquarium.Fish.number_of_keypoints):
+                    for pointIdx in range(Fish.number_of_keypoints):
                         # Visibility is set to zero if they are out of bounds
                         # Just got to clip them so that YOLO does not throw an error
                         x = np.clip(xArr[pointIdx], 0, imageSizeX - 1)

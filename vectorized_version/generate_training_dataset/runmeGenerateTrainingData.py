@@ -72,7 +72,8 @@ if debugging:
     fish2 = [3.8993589130855133, 5.61911477e+00 - 5, 4.22782300e+00 - 8, 7.73263985e+01 - 7, 0 , 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     fishVectList = [fish,fish2]
-    aquarium = Aquarium(20 ,fishVectList = fishVectList,annotationsType = AnnotationsType.keypoint )
+    # aquarium = Aquarium(20 ,fishVectList = fishVectList,annotationsType = AnnotationsType.keypoint )
+    aquarium = Aquarium(20 ,annotationsType = AnnotationsType.segmentation )
 
     # Case where you specify variables
     # Notes: overlapping and fishInEdges are not constrained to show up in only one view
