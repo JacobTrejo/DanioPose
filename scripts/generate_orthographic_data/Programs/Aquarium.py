@@ -155,9 +155,7 @@ class Aquarium:
             fish.update_visibility(self.finalViews)
             # You have update the fish list, because python is wierd
             self.fish_list[fishIdx] = fish
-        # Testing
-        gray = self.finalViews[0][0]
-        cv.imwrite('test2.png', gray)
+
         if self.shouldAddStaticNoise:
             self.add_static_noise_to_views()
 
