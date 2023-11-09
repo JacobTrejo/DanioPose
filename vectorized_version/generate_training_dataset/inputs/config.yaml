@@ -1,0 +1,10 @@
+# configuration file for variables used in the program
+# TODO: for neatness the variable names should have the same format
+
+imageSizeY: 488
+imageSizeX: 99999
+
+PatchyNoise: False
+amountOfData: 50000
+fractionForTraining: .9
+maxAmountOfFishInAllViews: 7
