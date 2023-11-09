@@ -1226,6 +1226,68 @@ def view_s_lut_new_real_cpu(crop_coor, pt,projection,imageSizeX,imageSizeY,bsz_t
     graymodel = uint8(graymodel)
 
     return graymodel
+
+def place_cropped_image_to_canvas(image, canvas, crops):
+    """
+        function that places a small cropped image onto a bigger image, the canvas, based on the crops
+    :param image: numpy array representing the small image
+    :param canvas: numpy array representing the canvas
+    :param crops: numpy array of the crops
+    :return: numpy array of the canvas with the cropped image place inside it
+    """
+
+    imageSizeY, imageSizeX = canvas.shape
+    imageSizeYForSmallerPicture, imageSizeXForSmallerPicture = image.shape
+
+    crops = crops.astype(int)
+
+    smallY, bigY, smallX, bigX = crops
+    canvas_indices = np.copy(crops)
+    gray_indices = np.array([0, imageSizeYForSmallerPicture - 1, 0, imageSizeXForSmallerPicture - 1])
+
+    # Adjusting if gray_b is horizontally out of bounds
+    isGrayBCompletelyOutOfBounds = False
+    if smallX < 0:
+        # Atleast some part of the image is out of bounds on the left
+        if bigX < 0:
+            isGrayBCompletelyOutOfBounds = True
+        else:
+            canvas_indices[2] = 0
+            lenghtOfImageNotShowing = -smallX
+            gray_indices[2] = lenghtOfImageNotShowing
+    if bigX > imageSizeX - 1:
+        # At least some part of the image is out of bounds on the right
+        if smallX > imageSizeX - 1:
+            isGrayBCompletelyOutOfBounds = True
+        else:
+            canvas_indices[3] = imageSizeX - 1
+            lenghtOfImageShowing = imageSizeX - smallX
+            gray_indices[3] = lenghtOfImageShowing - 1
+    # Adjusting if gray_b is vertically out of bounds
+    if smallY < 0:
+        # Atleast some part of the image is out of bounds on the left
+        if bigY < 0:
+            isGrayBCompletelyOutOfBounds = True
+        else:
+            canvas_indices[0] = 0
+            lenghtOfImageNotShowing = -smallY
+            gray_indices[0] = lenghtOfImageNotShowing
+    if bigY > imageSizeY - 1:
+        # At least some part of the image is out of bounds on the right
+        if smallY > imageSizeY - 1:
+            isGrayBCompletelyOutOfBounds = True
+        else:
+            canvas_indices[1] = imageSizeY - 1
+            lenghtOfImageShowing = imageSizeY - smallY
+            gray_indices[1] = lenghtOfImageShowing - 1
+
+    if not isGrayBCompletelyOutOfBounds:
+        canvas[canvas_indices[0]: canvas_indices[1] + 1, canvas_indices[2]: canvas_indices[3] + 1] = \
+            image[gray_indices[0]: gray_indices[1] + 1, gray_indices[2]: gray_indices[3] + 1]
+    canvas = canvas.astype(np.uint8)
+
+    return canvas
+
 def return_graymodels_fish(x, proj_params, fishlen, imageSizeX, imageSizeY, randsArr = None):
     """
     Function used to generate a fish defined by the 22 parameter vector x and fishlen
@@ -1448,143 +1510,22 @@ def return_graymodels_fish(x, proj_params, fishlen, imageSizeX, imageSizeY, rand
     s1Canvas = np.zeros((imageSizeY, imageSizeX))
     s2Canvas = np.zeros((imageSizeY, imageSizeX))
 
-    crop_b = crop_b.astype(int)
-    crop_s1 = crop_s1.astype(int)
-    crop_s2 = crop_s2.astype(int)
+    bCanvas = place_cropped_image_to_canvas(gray_b, bCanvas, crop_b)
 
-    smallY_b, bigY_b, smallX_b, bigX_b = crop_b
-    canvas_b_indices = np.copy(crop_b)
-    gray_b_indices = np.array([0, imageSizeYForSmallerPicture - 1, 0, imageSizeXForSmallerPicture - 1])
+    s1Canvas = place_cropped_image_to_canvas(gray_s1, s1Canvas, crop_s1)
 
-    # Adjusting if gray_b is horizontally out of bounds
-    isGrayBCompletelyOutOfBounds = False
-    if smallX_b < 0:
-        # Atleast some part of the image is out of bounds on the left
-        if bigX_b < 0:
-            isGrayBCompletelyOutOfBounds = True
-        else:
-            canvas_b_indices[2] = 0
-            lenghtOfImageNotShowing = -smallX_b
-            gray_b_indices[2] = lenghtOfImageNotShowing
-    if bigX_b > imageSizeX - 1:
-        # At least some part of the image is out of bounds on the right
-        if smallX_b > imageSizeX - 1:
-            isGrayBCompletelyOutOfBounds = True
-        else:
-            canvas_b_indices[3] = imageSizeX - 1
-            lenghtOfImageShowing = imageSizeX - smallX_b
-            gray_b_indices[3] = lenghtOfImageShowing - 1
-    # Adjusting if gray_b is vertically out of bounds
-    if smallY_b < 0:
-        # Atleast some part of the image is out of bounds on the left
-        if bigY_b < 0:
-            isGrayBCompletelyOutOfBounds = True
-        else:
-            canvas_b_indices[0] = 0
-            lenghtOfImageNotShowing = -smallY_b
-            gray_b_indices[0] = lenghtOfImageNotShowing
-    if bigY_b > imageSizeY - 1:
-        # At least some part of the image is out of bounds on the right
-        if smallY_b > imageSizeY - 1:
-            isGrayBCompletelyOutOfBounds = True
-        else:
-            canvas_b_indices[1] = imageSizeY - 1
-            lenghtOfImageShowing = imageSizeY - smallY_b
-            gray_b_indices[1] = lenghtOfImageShowing - 1
-
-    if not isGrayBCompletelyOutOfBounds:
-        bCanvas[ canvas_b_indices[0]: canvas_b_indices[1] + 1, canvas_b_indices[2]: canvas_b_indices[3] + 1] = \
-            gray_b[gray_b_indices[0]: gray_b_indices[1] + 1, gray_b_indices[2]: gray_b_indices[3] + 1]
-    bCanvas = bCanvas.astype(np.uint8)
-
-    smallY_s1, bigY_s1, smallX_s1, bigX_s1 = crop_s1
-    canvas_s1_indices = np.copy(crop_s1)
-    gray_s1_indices = np.array([0, imageSizeYForSmallerPicture - 1, 0, imageSizeXForSmallerPicture - 1])
-
-    # Adjusting if gray_s1 is horizontally out of bounds
-    isGrayS1CompletelyOutOfBounds = False
-    if smallX_s1 < 0:
-        # Atleast some part of the image is out of bounds on the left
-        if bigX_s1 < 0:
-            isGrayS1CompletelyOutOfBounds = True
-        else:
-            canvas_s1_indices[2] = 0
-            lenghtOfImageNotShowing = -smallX_s1
-            gray_s1_indices[2] = lenghtOfImageNotShowing
-    if bigX_s1 > imageSizeX - 1:
-        # At least some part of the image is out of bounds on the right
-        if smallX_s1 > imageSizeX - 1:
-            isGrayS1CompletelyOutOfBounds = True
-        else:
-            canvas_s1_indices[3] = imageSizeX - 1
-            lenghtOfImageShowing = imageSizeX - smallX_s1
-            gray_s1_indices[3] = lenghtOfImageShowing - 1
-    # Adjusting if gray_s1 is vertically out of bounds
-    if smallY_s1 < 0:
-        # Atleast some part of the image is out of bounds on the left
-        if bigY_s1 < 0:
-            isGrayS1CompletelyOutOfBounds = True
-        else:
-            canvas_s1_indices[0] = 0
-            lenghtOfImageNotShowing = -smallY_s1
-            gray_s1_indices[0] = lenghtOfImageNotShowing
-    if bigY_s1 > imageSizeY - 1:
-        # At least some part of the image is out of bounds on the right
-        if smallY_s1 > imageSizeY - 1:
-            isGrayS1CompletelyOutOfBounds = True
-        else:
-            canvas_s1_indices[1] = imageSizeY - 1
-            lenghtOfImageShowing = imageSizeY - smallY_s1
-            gray_s1_indices[1] = lenghtOfImageShowing - 1
-
-    if not isGrayS1CompletelyOutOfBounds:
-        s1Canvas[ canvas_s1_indices[0]: canvas_s1_indices[1] + 1, canvas_s1_indices[2]: canvas_s1_indices[3] + 1] = \
-            gray_s1[gray_s1_indices[0]: gray_s1_indices[1] + 1, gray_s1_indices[2]: gray_s1_indices[3] + 1]
-    s1Canvas = s1Canvas.astype(np.uint8)
-
-    smallY_s2, bigY_s2, smallX_s2, bigX_s2 = crop_s2
-    canvas_s2_indices = np.copy(crop_s2)
-    gray_s2_indices = np.array([0, imageSizeYForSmallerPicture - 1, 0, imageSizeXForSmallerPicture - 1])
-
-    # Adjusting if gray_s1 is horizontally out of bounds
-    isGrayS2CompletelyOutOfBounds = False
-    if smallX_s2 < 0:
-        # Atleast some part of the image is out of bounds on the left
-        if bigX_s2 < 0:
-            isGrayS2CompletelyOutOfBounds = True
-        else:
-            canvas_s2_indices[2] = 0
-            lenghtOfImageNotShowing = -smallX_s2
-            gray_s2_indices[2] = lenghtOfImageNotShowing
-    if bigX_s2 > imageSizeX - 1:
-        # At least some part of the image is out of bounds on the right
-        if smallX_s2 > imageSizeX - 1:
-            isGrayS2CompletelyOutOfBounds = True
-        else:
-            canvas_s2_indices[3] = imageSizeX - 1
-            lenghtOfImageShowing = imageSizeX - smallX_s2
-            gray_s2_indices[3] = lenghtOfImageShowing - 1
-    # Adjusting if gray_s2 is vertically out of bounds
-    if smallY_s2 < 0:
-        # Atleast some part of the image is out of bounds on the left
-        if bigY_s2 < 0:
-            isGrayS2CompletelyOutOfBounds = True
-        else:
-            canvas_s2_indices[0] = 0
-            lenghtOfImageNotShowing = -smallY_s2
-            gray_s2_indices[0] = lenghtOfImageNotShowing
-    if bigY_s2 > imageSizeY - 1:
-        # At least some part of the image is out of bounds on the right
-        if smallY_s2 > imageSizeY - 1:
-            isGrayS2CompletelyOutOfBounds = True
-        else:
-            canvas_s2_indices[1] = imageSizeY - 1
-            lenghtOfImageShowing = imageSizeY - smallY_s2
-            gray_s2_indices[1] = lenghtOfImageShowing - 1
-
-    if not isGrayS2CompletelyOutOfBounds:
-        s2Canvas[ canvas_s2_indices[0]: canvas_s2_indices[1] + 1, canvas_s2_indices[2]: canvas_s2_indices[3] + 1] = \
-            gray_s2[gray_s2_indices[0]: gray_s2_indices[1] + 1, gray_s2_indices[2]: gray_s2_indices[3] + 1]
-    s2Canvas = s2Canvas.astype(np.uint8)
+    s2Canvas = place_cropped_image_to_canvas(gray_s2, s2Canvas, crop_s2)
 
     return bCanvas, s1Canvas, s2Canvas, crop_b, crop_s1, crop_s2,annotated_b, annotated_s1, annotated_s2, eye_b, eye_s1, eye_s2,coor_3d
+
+
+
+
+
+
+
+
+
+
+
+
